@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Registrarse{% endblock %}
+{% block content %}
+<div style="max-width:420px; margin:3rem auto;">
+  <div class="card">
+    <h1>Crear cuenta</h1>
+    <form method="post">
+      <label>Nombre completo</label>
+      <input type="text" name="nombre" required placeholder="Tu nombre">
+      <label>Correo electrónico</label>
+      <input type="email" name="correo" required placeholder="tu@correo.com">
+      <label>Teléfono</label>
+      <input type="tel" name="telefono" placeholder="Opcional">
+      <label>Contraseña</label>
+      <input type="password" name="password" required minlength="6">
+      <button class="btn btn-primary" style="width:100%">Registrarse</button>
+    </form>
+    <p style="margin-top:1rem; font-size:.85rem; text-align:center;">
+      ¿Ya tienes cuenta? <a href="{{ url_for('login') }}">Inicia sesión</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

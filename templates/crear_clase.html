@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Crear clase{% endblock %}
+{% block content %}
+<div style="max-width:480px; margin:0 auto;">
+  <div class="card">
+    <h1>Crear nueva clase</h1>
+    <form method="post">
+      <label>Nombre de la clase</label>
+      <input type="text" name="nombre" required placeholder="Ej: Yoga">
+      <label>Instructor</label>
+      <input type="text" name="instructor" required placeholder="Nombre del instructor">
+      <label>Fecha</label>
+      <input type="date" name="fecha" required>
+      <label>Hora de inicio</label>
+      <input type="time" name="hora_inicio" required>
+      <label>Hora de fin</label>
+      <input type="time" name="hora_fin" required>
+      <label>Cupo máximo</label>
+      <input type="number" name="cupo_maximo" required min="1" max="100" placeholder="Ej: 15">
+      <button class="btn btn-primary" style="width:100%">Crear clase</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

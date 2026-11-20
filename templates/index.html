@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reservas del gimnasio</title>
+<style>
+  :root { --fondo:#f4f4f5; --tarjeta:#fff; --texto:#18181b; --suave:#6b7280; --linea:#d4d4d8;
+          --acento:#dc2626; --acento-fuerte:#991b1b; --error:#b3261e; --ok:#166534; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--fondo); color:var(--texto);
+         font:16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background:var(--acento); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  header h1 { font-size:1.15rem; margin:0; }
+  main { max-width:760px; margin:0 auto; padding:20px; }
+  .tarjeta { background:var(--tarjeta); border:1px solid var(--linea); border-radius:8px; padding:16px; margin-bottom:12px; }
+  .fila { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  h2 { font-size:1.1rem; margin:0 0 12px; }
+  label { display:block; font-size:.9rem; color:var(--suave); margin:10px 0 4px; }
+  input { width:100%; padding:10px; border:1px solid var(--linea); border-radius:6px; font:inherit; }
+  input:focus-visible, button:focus-visible { outline:3px solid #7fc4bf; outline-offset:1px; }
+  button { font:inherit; padding:9px 16px; border-radius:6px; border:1px solid var(--acento); background:var(--acento); color:#fff; cursor:pointer; }
+  button:hover { background:var(--acento-fuerte); }
+  button.sec { background:#fff; color:var(--acento); }
+  button.sec:hover { background:#eef6f5; }
+  button.peligro { background:#fff; color:var(--error); border-color:var(--error); }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  header button { background:transparent; border-color:#ffffff99; }
+  nav { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  nav button { background:#fff; color:var(--texto); border-color:var(--linea); }
+  nav button.activa { background:var(--acento); color:#fff; border-color:var(--acento); }
+  .suave { color:var(--suave); font-size:.9rem; }
+  .cupos { font-weight:600; }
+  .cupos.lleno { color:var(--error); }
+  .estado { font-size:.85rem; padding:2px 10px; border-radius:99px; border:1px solid var(--linea); }
+  .estado.confirmada { color:var(--ok); border-color:var(--ok); }
+  .estado.cancelada { color:var(--error); border-color:var(--error); }
+  .estado.asistida { color:var(--acento); border-color:var(--acento); }
+  #mensaje { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); padding:10px 18px; border-radius:6px;
+             background:#1b2428; color:#fff; max-width:90%; display:none; }
+  #mensaje.error { background:var(--error); }
+  .oculto { display:none; }
+  .auth { max-width:380px; margin:30px auto; }
+  .barra { height:8px; background:#e8eceb; border-radius:4px; overflow:hidden; margin-top:8px; }
+  .barra > div { height:100%; background:var(--acento); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Reservas del gimnasio</h1>
+  <div id="sesion" class="oculto"><span id="quien"></span> <button id="salir" type="button">Cerrar sesión</button></div>
+</header>
+
+<main>
+  <!-- Inicio de sesion -->
+  <section id="vista-auth" class="auth">
+    <div class="tarjeta">
+      <h2 id="titulo-auth">Iniciar sesión</h2>
+      <div id="campo-nombre" class="oculto"><label for="nombre">Nombre</label><input id="nombre" autocomplete="name"></div>
+      <label for="correo">Correo</label><input id="correo" type="email" autocomplete="email">
+      <label for="clave">Clave</label><input id="clave" type="password" autocomplete="current-password">
+      <p><button id="enviar-auth" type="button">Iniciar sesión</button>
+         <button id="cambiar-auth" class="sec" type="button">Crear una cuenta</button></p>
+      <p class="suave">Prueba como administrador: admin@gym.com / admin123</p>
+    </div>
+  </section>
+
+  <!-- Aplicacion -->
+  <section id="vista-app" class="oculto">
+    <nav id="menu"></nav>
+    <div id="contenido"></div>
+  </section>
+</main>
+<div id="mensaje" role="status"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fecha = (iso) => new Date(iso).toLocaleString('es-CO', { weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+let usuario = null, pestana = 'clases', modoRegistro = false, temporizador;
+
+function aviso(texto, error = false) {
+  const m = $('mensaje'); m.textContent = texto; m.className = error ? 'error' : ''; m.style.display = 'block';
+  clearTimeout(temporizador); temporizador = setTimeout(() => (m.style.display = 'none'), 3500);
+}
+async function api(ruta, metodo = 'GET', cuerpo) {
+  const r = await fetch(ruta, { method: metodo, headers: { 'Content-Type': 'application/json' }, body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+  const datos = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(datos.error || 'Algo salió mal.');
+  return datos;
+}
+const intentar = async (accion) => { try { await accion(); } catch (e) { aviso(e.message, true); } };
+
+// Inicio de sesion
+function modoAuth(registro) {
+  modoRegistro = registro;
+  $('titulo-auth').textContent = registro ? 'Crear una cuenta' : 'Iniciar sesión';
+  $('enviar-auth').textContent = registro ? 'Registrarme' : 'Iniciar sesión';
+  $('cambiar-auth').textContent = registro ? 'Ya tengo cuenta' : 'Crear una cuenta';
+  $('campo-nombre').classList.toggle('oculto', !registro);
+}
+$('cambiar-auth').onclick = () => modoAuth(!modoRegistro);
+$('enviar-auth').onclick = () => intentar(async () => {
+  const datos = { nombre: $('nombre').value, correo: $('correo').value, clave: $('clave').value };
+  if (modoRegistro) { await api('/api/registro', 'POST', datos); aviso('Cuenta creada. Ahora inicia sesión.'); modoAuth(false); return; }
+  usuario = await api('/api/login', 'POST', datos); mostrarApp();
+});
+$('salir').onclick = () => intentar(async () => { await api('/api/logout', 'POST'); usuario = null; mostrarApp(); });
+
+function mostrarApp() {
+  const dentro = !!usuario;
+  $('vista-auth').classList.toggle('oculto', dentro);
+  $('vista-app').classList.toggle('oculto', !dentro);
+  $('sesion').classList.toggle('oculto', !dentro);
+  if (!dentro) return;
+  $('quien').textContent = usuario.nombre;
+  const admin = usuario.rol === 'administrador';
+  const pestanas = admin ? [['reportes','Reportes'], ['nueva','Crear clase']] : [['clases','Clases'], ['mias','Mis reservas']];
+  pestana = pestanas[0][0];
+  $('menu').innerHTML = pestanas.map(([id, t]) => `<button type="button" data-id="${id}">${t}</button>`).join('');
+  $('menu').querySelectorAll('button').forEach((b) => (b.onclick = () => { pestana = b.dataset.id; pintar(); }));
+  pintar();
+}
+
+function pintar() {
+  $('menu').querySelectorAll('button').forEach((b) => b.classList.toggle('activa', b.dataset.id === pestana));
+  intentar(async () => ({ clases: vistaClases, mias: vistaMias, reportes: vistaReportes, nueva: vistaNueva })[pestana]());
+}
+
+// Usuario
+async function vistaClases() {
+  const clases = await api('/api/clases');
+  $('contenido').innerHTML = clases.map((c) => `
+    <div class="tarjeta fila">
+      <div><strong>${esc(c.nombre)}</strong><br><span class="suave">${fecha(c.fecha_hora)}</span></div>
+      <div class="fila">
+        <span class="cupos ${c.cupos_disponibles ? '' : 'lleno'}">${c.cupos_disponibles ? c.cupos_disponibles + ' de ' + c.cupo_maximo + ' cupos' : 'Clase llena'}</span>
+        <button type="button" data-reservar="${c.id}" ${c.cupos_disponibles ? '' : 'disabled'}>Reservar</button>
+      </div>
+    </div>`).join('') || '<p class="suave">Todavía no hay clases.</p>';
+  $('contenido').querySelectorAll('[data-reservar]').forEach((b) => (b.onclick = () => intentar(async () => {
+    try { await api('/api/reservas', 'POST', { clase_id: Number(b.dataset.reservar) }); aviso('Reserva confirmada.'); }
+    finally { pintar(); }
+  })));
+}
+
+async function vistaMias() {
+  const reservas = await api('/api/reservas');
+  $('contenido').innerHTML = reservas.map((r) => `
+    <div class="tarjeta fila">
+      <div><strong>${esc(r.nombre)}</strong><br><span class="suave">${fecha(r.fecha_hora)}</span></div>
+      <div class="fila"><span class="estado ${r.estado}">${r.estado}</span>
+        ${r.estado === 'confirmada' ? `<button class="peligro" type="button" data-cancelar="${r.id}">Cancelar</button>` : ''}</div>
+    </div>`).join('') || '<p class="suave">Aún no tienes reservas. Elige una clase en la pestaña Clases.</p>';
+  $('contenido').querySelectorAll('[data-cancelar]').forEach((b) => (b.onclick = () => intentar(async () => {
+    await api(`/api/reservas/${b.dataset.cancelar}/cancelar`, 'POST'); aviso('Reserva cancelada.'); pintar();
+  })));
+}
+
+// Administrador
+async function vistaReportes() {
+  const filas = await api('/api/reportes');
+  $('contenido').innerHTML = filas.map((f) => `
+    <div class="tarjeta">
+      <div class="fila"><div><strong>${esc(f.nombre)}</strong><br><span class="suave">${fecha(f.fecha_hora)}</span></div>
+        <span class="cupos">${f.ocupadas} de ${f.cupo_maximo} ocupados</span></div>
+      <div class="barra"><div style="width:${Math.min(100, (f.ocupadas / f.cupo_maximo) * 100)}%"></div></div>
+      <p class="suave">Confirmadas: ${f.confirmadas}, Asistidas: ${f.asistidas}, Canceladas: ${f.canceladas}</p>
+      <button class="sec" type="button" data-detalle="${f.clase_id}">Ver reservas</button>
+      <div id="detalle-${f.clase_id}"></div>
+    </div>`).join('');
+  $('contenido').querySelectorAll('[data-detalle]').forEach((b) => (b.onclick = () => intentar(() => detalle(b.dataset.detalle))));
+}
+async function detalle(id) {
+  const filas = await api(`/api/reportes/${id}`);
+  $(`detalle-${id}`).innerHTML = filas.map((r) => `
+    <div class="fila" style="padding-top:8px"><span>${esc(r.nombre)}</span>
+      <span class="fila"><span class="estado ${r.estado}">${r.estado}</span>
+      ${r.estado === 'confirmada' ? `<button class="sec" type="button" data-asistio="${r.id}" data-clase="${id}">Marcar asistencia</button>` : ''}</span></div>`).join('')
+    || '<p class="suave">Esta clase no tiene reservas.</p>';
+  $(`detalle-${id}`).querySelectorAll('[data-asistio]').forEach((b) => (b.onclick = () => intentar(async () => {
+    await api(`/api/reservas/${b.dataset.asistio}/asistir`, 'POST'); aviso('Asistencia registrada.'); await vistaReportes(); await detalle(b.dataset.clase);
+  })));
+}
+function vistaNueva() {
+  $('contenido').innerHTML = `<div class="tarjeta"><h2>Crear clase</h2>
+    <label for="c-nombre">Nombre</label><input id="c-nombre">
+    <label for="c-fecha">Fecha y hora</label><input id="c-fecha" type="datetime-local">
+    <label for="c-cupo">Cupo máximo</label><input id="c-cupo" type="number" min="1" value="10">
+    <p><button id="c-guardar" type="button">Guardar clase</button></p></div>`;
+  $('c-guardar').onclick = () => intentar(async () => {
+    await api('/api/clases', 'POST', { nombre: $('c-nombre').value, fecha_hora: $('c-fecha').value, cupo_maximo: $('c-cupo').value });
+    aviso('Clase creada.'); $('c-nombre').value = '';
+  });
+}
+
+// Comprobar la sesion al abrir la pagina
+api('/api/yo').then((u) => { usuario = u; mostrarApp(); }).catch(() => mostrarApp());
+</script>
+</body>
+</html>

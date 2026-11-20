@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Clases disponibles{% endblock %}
+{% block content %}
+<h1>Clases disponibles</h1>
+{% if clases %}
+<div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap:1rem;">
+  {% for c in clases %}
+  <div class="card class-card" style="position:relative;">
+    <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:.5rem;">
+      <strong style="font-size:1.05rem;">{{ c.nombre }}</strong>
+      {% if c.cupos_disponibles > 0 %}
+        <span class="badge badge-green">{{ c.cupos_disponibles }} cupos</span>
+      {% else %}
+        <span class="badge badge-red">Llena</span>
+      {% endif %}
+    </div>
+    <p class="class-meta"><span class="meta-label">Instructor:</span> {{ c.instructor }}</p>
+    <p class="class-meta"><span class="meta-label">Fecha:</span> {{ c.fecha }}</p>
+    <p class="class-meta" style="margin-bottom:1rem;"><span class="meta-label">Horario:</span> {{ c.hora_inicio }} a {{ c.hora_fin }}</p>
+
+    {% if c.ya_reservo %}
+      <span class="badge badge-green">Ya reservaste</span>
+    {% elif c.cupos_disponibles > 0 %}
+      <form method="post" action="{{ url_for('reservar', id_clase=c.id_clase) }}">
+        <button class="btn btn-primary" style="width:100%">Reservar</button>
+      </form>
+    {% else %}
+      <button class="btn btn-secondary" style="width:100%" disabled>Sin cupo</button>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">
+  <p style="color:#888; text-align:center; padding:2rem;">No hay clases disponibles próximamente.</p>
+</div>
+{% endif %}
+{% endblock %}

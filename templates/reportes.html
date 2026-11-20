@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Reportes de uso{% endblock %}
+{% block content %}
+<h1>Reportes de uso</h1>
+<div class="card" style="padding:0; overflow:hidden;">
+  <table>
+    <thead>
+      <tr>
+        <th>Clase</th><th>Instructor</th><th>Fecha</th><th>Horario</th>
+        <th>Cupo máx.</th><th>Confirmadas</th><th>Asistidas</th><th>Canceladas</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in reporte %}
+      <tr>
+        <td><strong>{{ r.nombre }}</strong></td>
+        <td>{{ r.instructor }}</td>
+        <td>{{ r.fecha }}</td>
+        <td>{{ r.hora_inicio }}</td>
+        <td>{{ r.cupo_maximo }}</td>
+        <td><span class="badge badge-green">{{ r.confirmadas }}</span></td>
+        <td><span class="badge badge-green">{{ r.asistidas }}</span></td>
+        <td><span class="badge badge-red">{{ r.canceladas }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

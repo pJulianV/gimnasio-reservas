@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Mis reservas{% endblock %}
+{% block content %}
+<h1>Mis reservas</h1>
+{% if reservas %}
+<div class="card" style="padding:0; overflow:hidden;">
+  <table>
+    <thead>
+      <tr>
+        <th>Clase</th><th>Instructor</th><th>Fecha</th><th>Horario</th><th>Estado</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in reservas %}
+      <tr>
+        <td><strong>{{ r.clase_nombre }}</strong></td>
+        <td>{{ r.instructor }}</td>
+        <td>{{ r.fecha }}</td>
+        <td>{{ r.hora_inicio }} a {{ r.hora_fin }}</td>
+        <td>
+          {% if r.estado == 'CONFIRMADA' %}
+            <span class="badge badge-green">Confirmada</span>
+          {% elif r.estado == 'CANCELADA' %}
+            <span class="badge badge-red">Cancelada</span>
+          {% elif r.estado == 'ASISTIDA' %}
+            <span class="badge badge-green">Asistida</span>
+          {% else %}
+            <span class="badge badge-gray">{{ r.estado }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if r.estado == 'CONFIRMADA' %}
+          <form method="post" action="{{ url_for('cancelar', id_reserva=r.id_reserva) }}"
+                onsubmit="return confirm('¿Cancelar esta reserva?')">
+            <button class="btn btn-danger" style="font-size:.8rem; padding:.3rem .7rem;">Cancelar</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card">
+  <p style="color:#888; text-align:center; padding:2rem;">
+    Aún no tienes reservas. <a href="{{ url_for('clases') }}">Ver clases disponibles</a>
+  </p>
+</div>
+{% endif %}
+{% endblock %}
